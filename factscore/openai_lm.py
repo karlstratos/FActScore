@@ -66,13 +66,15 @@ def call_ChatGPT(message, model_name="gpt-3.5-turbo", max_len=1024, temp=0.7, ve
                 # something is wrong: e.g. prompt too long
                 logging.critical(f"InvalidRequestError\nPrompt passed in:\n\n{message}\n\n")
                 assert False
-            
+
             logging.error("API error: %s (%d). Waiting %dsec" % (error, num_rate_errors, np.power(2, num_rate_errors)))
             time.sleep(np.power(2, num_rate_errors))
     return response
 
 
-def call_GPT3(prompt, model_name="text-davinci-003", max_len=512, temp=0.7, num_log_probs=0, echo=False, verbose=False):
+# text-davinci-003 is deprecated: https://platform.openai.com/docs/deprecations
+#def call_GPT3(prompt, model_name="text-davinci-003", max_len=512, temp=0.7, num_log_probs=0, echo=False, verbose=False):
+def call_GPT3(prompt, model_name="gpt-3.5-turbo-instruct", max_len=512, temp=0.7, num_log_probs=0, echo=False, verbose=False):
     # call GPT-3 API until result is provided and then return it
     response = None
     received = False

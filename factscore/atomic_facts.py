@@ -129,13 +129,19 @@ class AtomicFactGenerator(object):
         if cost_estimate:
             total_words_estimate = 0
             for prompt in prompts:
+                #print(prompt.strip() + "_0")
+                #print(self.openai_lm.cache_dict)
+                #print((prompt.strip() + "_0") in self.openai_lm.cache_dict)
+                #print('skipping total words')
                 if cost_estimate == "consider_cache" and (prompt.strip() + "_0") in self.openai_lm.cache_dict:
                     continue
                 total_words_estimate += len(prompt.split())
             return total_words_estimate
         else:
-            for prompt in prompts:
+            for i, prompt in enumerate(prompts):
+                #print('atomic fact generation prompt', i + 1, '/', len(prompts), '(for sentences in one biography)')
                 output, _ = self.openai_lm.generate(prompt)
+                #print(output)
                 atoms[prompt_to_sent[prompt]] = text_to_sentences(output)
 
             for key, value in demons.items():
@@ -155,9 +161,9 @@ def best_demos(query, bm25, demons_sents, k):
 def text_to_sentences(text):
     sentences = text.split("- ")[1:]
     sentences = [sent.strip()[:-1] if sent.strip()[-1] == '\n' else sent.strip() for sent in sentences]
-    if len(sentences) > 0: 
+    if len(sentences) > 0:
         if sentences[-1][-1] != '.':
-            sentences[-1] = sentences[-1] + '.' 
+            sentences[-1] = sentences[-1] + '.'
     else:
         sentences = []
     return sentences
@@ -222,7 +228,7 @@ def detect_entities(text, nlp):
                 for token in ent.text.split():
                     if is_date(token):
                         _add_to_entities(token)
-        
+
     for new_ent in extract_numeric_values(text):
         if not np.any([new_ent in ent for ent in entities]):
             entities.add(new_ent)

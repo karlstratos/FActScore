@@ -48,7 +48,7 @@ class FactScorer(object):
                           cache_file=os.path.join(cache_dir, "inst-llama-7B.pkl"))
         elif "ChatGPT" in model_name:
             self.lm = OpenAIModel("ChatGPT",
-                                  cache_file=os.path.join(cache_dir, "ChatGPT.pkl"),
+                                  cache_file=os.path.join(cache_dir, "ChatGPT.pkl"),  # cached responses for factscore evaluation
                                   key_path=openai_key)
         else:
             self.lm = None
@@ -88,18 +88,24 @@ class FactScorer(object):
         # Number of tokens are roughly 4/3 of the number of words
         total_tokens = total_words * 4.0 / 3
 
-        # https://openai.com/pricing
-        # if we use davinci-003, the cost is $0.02 per 1000 tokens
-        # if we use gpt-3.5-turbo, the cost is $0.002 per 1000 tokens
-        if model == "davinci-003":
-            rate = 0.02
-        elif model == "gpt-3.5-turbo":
-            rate = 0.002
+        # ---https://openai.com/pricing
+        # ---if we use davinci-003, the cost is $0.02 per 1000 tokens
+        # ---if we use gpt-3.5-turbo, the cost is $0.002 per 1000 tokens
+        # ---if model == "davinci-003":
+        # ---   rate = 0.02
+        # ---elif model == "gpt-3.5-turbo":
+        # ---   rate = 0.002
+        # text-davinci-003 is deprecated: https://platform.openai.com/docs/deprecations
+        # As of now (2/23/24), the gpt-3.5-turbo-instruct pricing is 0.0015 for 1K input tokens and 0.002 for 1K output tokens.
+        # In this case the output is just 1 token for supported/not supported, but can be many tokens for atomic fact generation.
+        assert model == "gpt-3.5-turbo-instruct"
+        assert task in ["atomic fact generation", "factscore evaluation"]
+        rate = 0.0015
 
         total_cost = total_tokens * rate / 1000
 
         # print the total words, tokens, and cost along with rate
-        logging.critical("Estimated OpenAI API cost for %s ($%.3f per 1000 tokens): $%.2f for %d words and %d tokens" % (task, rate, total_cost, total_words, total_tokens))
+        logging.critical("Estimated OpenAI API cost for %s ($%.3f per 1000 tokens): $%.2f for %d words and %d *input* tokens (the cost does not include output tokens)" % (task, rate, total_cost, total_words, total_tokens))
 
     def get_score(self,
                   topics,
@@ -128,14 +134,16 @@ class FactScorer(object):
             if self.af_generator is None:
                 self.af_generator = AtomicFactGenerator(key_path=self.openai_key,
                                                         demon_dir=os.path.join(self.data_dir, "demos"),
-                                                        gpt3_cache_file=os.path.join(self.cache_dir, "InstructGPT.pkl"))
+                                                        gpt3_cache_file=os.path.join(self.cache_dir, "InstructGPT.pkl"))  # cached responses for atomic fact generation
 
             # estimate the total cost of atomic fact generation
             total_words = 0
             for gen in generations:
                 total_words += self.af_generator.run(gen, cost_estimate=self.cost_estimate)
 
-            self.print_cost_estimates(total_words, task="atomic fact generation", model="davinci-003")
+            # text-davinci-003 is deprecated: https://platform.openai.com/docs/deprecations
+            #self.print_cost_estimates(total_words, task="atomic fact generation", model="davinci-003")
+            self.print_cost_estimates(total_words, task="atomic fact generation", model="gpt-3.5-turbo-instruct")
 
             if verbose:
                 topics = tqdm(topics)
@@ -165,11 +173,15 @@ class FactScorer(object):
         if "ChatGPT" in self.model_name:
             # estimate the total cost of response generation
             total_words = 0
-            for topic, generation, facts in zip(topics, generations, atomic_facts):
+            print(f'First go through {len(topics)} topics. Retrieve if necessary to create factscore prompts and estimate the cost')
+            for i, (topic, generation, facts) in enumerate(zip(topics, generations, atomic_facts)):
+                print(i+1, end=', ')
                 if facts is not None:
                     total_words += self._get_score(topic, generation, facts, knowledge_source, cost_estimate=self.cost_estimate)
+            print()
 
-            self.print_cost_estimates(total_words, task="factscore evaluation", model="gpt-3.5-turbo")
+            #self.print_cost_estimates(total_words, task="factscore evaluation", model="gpt-3.5-turbo")
+            self.print_cost_estimates(total_words, task="factscore evaluation", model="gpt-3.5-turbo-instruct")
 
         if verbose:
             topics = tqdm(topics)
@@ -183,12 +195,12 @@ class FactScorer(object):
             else:
                 decision = self._get_score(topic, generation, facts, knowledge_source)
                 score = np.mean([d["is_supported"] for d in decision])
-                
+
                 if gamma:
                     init_scores.append(score)
                     penalty = 1.0 if len(facts)>gamma else np.exp(1-gamma/len(facts))
                     score = penalty * score
-                
+
                 decisions.append(decision)
                 scores.append(score)
                 if len(scores) % 10 == 0:
@@ -203,15 +215,16 @@ class FactScorer(object):
 
         if gamma:
             out["init_score"] = np.mean(init_scores)
-        
+
         return out
 
     def _get_score(self, topic, generation, atomic_facts, knowledge_source, cost_estimate=None):
         decisions = []
         total_words = 0
-        for atom in atomic_facts:
+        for i, atom in enumerate(atomic_facts):
             atom = atom.strip()
             if self.lm:
+                # This will take some time, but the results will be cached.
                 passages = self.retrieval[knowledge_source].get_passages(topic, atom, k=5)
                 definition = "Answer the question about {} based on the given context.\n\n".format(topic)
                 context = ""
@@ -229,7 +242,10 @@ class FactScorer(object):
                         total_words += len(prompt.split())
                     continue
 
+                #print('T/F prompt', i + 1, '/', len(atomic_facts), '(for atomic facts in one biography)')
+                #print(prompt)
                 output = self.lm.generate(prompt)
+                #print(output[0])
 
                 if type(output[1])==np.ndarray:
                     # when logits are available
@@ -241,6 +257,9 @@ class FactScorer(object):
                 else:
                     # when logits are unavailable
                     generated_answer = output[0].lower()
+                    # This fucker can be something other than just "true' or 'false' with gpt-3.5-turbo-instruct, like:
+                    # "The input statement is false. The Whitney Museum of American Art is a museum located in New York City."
+                    # So we have to do this.
                     if "true" in generated_answer or "false" in generated_answer:
                         if "true" in generated_answer and "false" not in generated_answer:
                             is_supported = True
@@ -308,7 +327,7 @@ if __name__ == '__main__':
                         action="store_true")
     parser.add_argument('--verbose',
                         action="store_true",
-                        help="for printing out the progress bar")    
+                        help="for printing out the progress bar")
     parser.add_argument('--print_rate_limit_error',
                         action="store_true",
                         help="for printing out rate limit error when using OpenAI keys")
@@ -363,4 +382,3 @@ if __name__ == '__main__':
     # Save out as a json file
     with open(args.input_path.replace(".jsonl", f"_factscore_output.json"), 'w') as f:
         f.write(json.dumps(out) + "\n")
-

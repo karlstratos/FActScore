@@ -23,7 +23,7 @@ class DocDB(object):
 
         cursor = self.connection.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        
+
         if len(cursor.fetchall())==0:
             assert data_path is not None, f"{self.db_path} is empty. Specify `data_path` in order to create a DB."
             print (f"{self.db_path} is empty. start building DB from {data_path}...")
@@ -46,7 +46,7 @@ class DocDB(object):
     def build_db(self, db_path, data_path):
         from transformers import RobertaTokenizer
         tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
-        
+
         titles = set()
         output_lines = []
         tot = 0
@@ -77,7 +77,7 @@ class DocDB(object):
                         while offset < len(tokens):
                             passages.append(tokens[offset:offset+MAX_LENGTH])
                             offset += MAX_LENGTH
-                
+
                 psgs = [tokenizer.decode(tokens) for tokens in passages if np.sum([t not in [0, 2] for t in tokens])>0]
                 text = SPECIAL_SEPARATOR.join(psgs)
                 output_lines.append((title, text))
@@ -117,7 +117,7 @@ class Retrieval(object):
         self.retrieval_type = retrieval_type
         self.batch_size = batch_size
         assert retrieval_type=="bm25" or retrieval_type.startswith("gtr-")
-        
+
         self.encoder = None
         self.load_cache()
         self.add_n = 0
@@ -130,7 +130,7 @@ class Retrieval(object):
         encoder = encoder.eval()
         self.encoder = encoder
         assert self.batch_size is not None
-    
+
     def load_cache(self):
         if os.path.exists(self.cache_path):
             with open(self.cache_path, "r") as f:
@@ -142,23 +142,23 @@ class Retrieval(object):
                 self.embed_cache = pkl.load(f)
         else:
             self.embed_cache = {}
-    
+
     def save_cache(self):
         if self.add_n > 0:
             if os.path.exists(self.cache_path):
                 with open(self.cache_path, "r") as f:
                     new_cache = json.load(f)
                 self.cache.update(new_cache)
-            
+
             with open(self.cache_path, "w") as f:
                 json.dump(self.cache, f)
-        
+
         if self.add_n_embed > 0:
             if os.path.exists(self.embed_cache_path):
                 with open(self.embed_cache_path, "rb") as f:
                     new_cache = pkl.load(f)
                 self.embed_cache.update(new_cache)
-            
+
             with open(self.embed_cache_path, "wb") as f:
                 pkl.dump(self.embed_cache, f)
 
@@ -183,7 +183,7 @@ class Retrieval(object):
             passage_vectors = self.encoder.encode(inputs, batch_size=self.batch_size, device=self.encoder.device)
             self.embed_cache[topic] = passage_vectors
             self.add_n_embed += 1
-        query_vectors = self.encoder.encode([retrieval_query], 
+        query_vectors = self.encoder.encode([retrieval_query],
                                             batch_size=self.batch_size,
                                             device=self.encoder.device)[0]
         scores = np.inner(query_vectors, passage_vectors)
@@ -193,8 +193,9 @@ class Retrieval(object):
     def get_passages(self, topic, question, k):
         retrieval_query = topic + " " + question.strip()
         cache_key = topic + "#" + retrieval_query
-        
+
         if cache_key not in self.cache:
+            # Here, passages are chunks of the Wikipedia article corresponding to the topic, often just one.
             passages = self.db.get_text_from_title(topic)
             if self.retrieval_type=="bm25":
                 self.cache[cache_key] = self.get_bm25_passages(topic, retrieval_query, passages, k)
@@ -202,11 +203,11 @@ class Retrieval(object):
                 self.cache[cache_key] = self.get_gtr_passages(topic, retrieval_query, passages, k)
             assert len(self.cache[cache_key]) in [k, len(passages)]
             self.add_n += 1
-        
-            
+
+        #print(cache_key)
+        #print(len(self.cache[cache_key]))
+        #if len(self.cache[cache_key]) > 1:
+        #    for i, pas in enumerate(self.cache[cache_key]):
+        #        print(i+1, pas)
+        #    print()
         return self.cache[cache_key]
-
-        
-        
-
-
