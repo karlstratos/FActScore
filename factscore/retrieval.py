@@ -29,6 +29,8 @@ class DocDB(object):
             print (f"{self.db_path} is empty. start building DB from {data_path}...")
             self.build_db(self.db_path, data_path)
 
+        self.cache_for_slow = {}
+
     def __enter__(self):
         return self
 
@@ -97,14 +99,43 @@ class DocDB(object):
 
     def get_text_from_title(self, title):
         """Fetch the raw text of the doc for 'doc_id'."""
+        if title in self.cache_for_slow:
+            return self.cache_for_slow[title]
+
         cursor = self.connection.cursor()
         cursor.execute("SELECT text FROM documents WHERE title = ?", (title,))
         results = cursor.fetchall()
-        results = [r for r in results]
+
+        if len(results)==1:  # DB has exactly 1 entry with = title (no ambig)
+            results = [r for r in results]
+            #for result in results:
+            #    print(result)
+            #print('-'*80)
+            #print(SPECIAL_SEPARATOR)  # "####SPECIAL####SEPARATOR####"
+            #print(results[0][0].split(SPECIAL_SEPARATOR))
+            #print(len(results[0][0].split(SPECIAL_SEPARATOR)))  # 1 if under 256
+            # SPECIAL_SEPARATOR was used to distinguish 256-long passages during DB construction, so the following takes the
+            # the first section and splitting by the separator to create paragraphs.
+            results = [{"title": title, "text": para} for para in results[0][0].split(SPECIAL_SEPARATOR)]
+
+            assert len(results)>0, f"`topic` in your data ({title}) is likely to be not a valid title in the DB."
+        else:
+            assert len(results)==0  # e.g., title="Francisco Urroz" != 'Francisco Urroz (rugby union)'
+            print(f'Failed to exact match "{title}" in DB!, trying prefix search (slow)...')
+            cursor.execute("SELECT text FROM documents WHERE title LIKE ?", (title + '%',))
+            results = cursor.fetchall()
+            assert len(results)>0, f"Failed again, I give up"
+
+            results = [r for r in results]
+            print(f'Matched {len(results)} results, will just use all their paragraphs for "{title}"')
+            x = []
+            for result in results:
+                print(result)
+                x.extend([{"title": title, "text": para} for para in result[0].split(SPECIAL_SEPARATOR)])
+            results = x
+            self.cache_for_slow[title] = results
+
         cursor.close()
-        assert results is not None and len(results)==1, f"`topic` in your data ({title}) is likely to be not a valid title in the DB."
-        results = [{"title": title, "text": para} for para in results[0][0].split(SPECIAL_SEPARATOR)]
-        assert len(results)>0, f"`topic` in your data ({title}) is likely to be not a valid title in the DB."
         return results
 
 class Retrieval(object):

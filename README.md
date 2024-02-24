@@ -12,11 +12,21 @@ gdown https://drive.google.com/uc?id=1mekls6OGOKLmt7gYtHs0WGf5oTamTNat -O .cache
 
 Put your OpenAI key in a file, assumed to be `openai_key.txt` here.
 
+
+## Issues
+
+- In the code, the atomic fact generator is InstructGPT and the factscore evaluator is (Retrieval+)ChatGPT.
+
+- Originally, InstructGPT=GPT3=text-davinci-003, and ChatGPT=gpt-3.5-turbo.
+
+- Due to deprecation, both InstructGPT and ChatGPT use gpt-3.5-turbo-instruct now. So the replication will not be exact.
+
+- Some topics don't match exactly to titles in the DB due to ambiguity, which causes the code to fail. An example is "Francisco Urroz". The code is modified to match titles with the same prefix if this happens (much slower), which gives "Francisco Urroz (rugby union)" and "Francisco Urroz (footballer)". The code then just uses all the paragraphs in these entries, assuming that the model shouldn't be penalized for the ambiguity of the query. This is an interesting example because GPT-4 is aware of the ambiguity at least (though it gets most facts wrong) while Alpaca-65B is oblivious, see `*-problem.jsonl`.
+
+
 # Commands
 
-Since davinci-003 is deprecated, both "InstructGPT" and "ChatGPT" use gpt-3.5-turbo-instruct.
-
-The code will cache results on already completed prompts. By default these are `.cache/factscore/InstructGPT.pkl` for atomic fact generation and `.cache/factscore/ChatGPT.pkl` for factscore evaluation. (I guess there's no need to distinguish them now since they're both gpt-3.5-turbo-instruct.)
+The code will cache results on already completed prompts. By default these are `.cache/factscore/InstructGPT.pkl` for atomic fact generation and `.cache/factscore/ChatGPT.pkl` for factscore evaluation.
 
 ## Toy
 
@@ -27,22 +37,21 @@ python factscore/factscorer.py --input_path ChatGPT_unlabeled_head2.jsonl --mode
 
 ## Labeled
 
-Evaluate the ChatGPT (i.e., the old davinci-003) responses, human-labeled with atomic facts. Only run the factscore evaluator. Need to consume ~5.9 milion tokens corresponding to atomic facts in 157 ChatGPT biographies (I guess what's remaining after abstaining from the original 183 topics). Even though we don't need atomic fact generation, it can take a while for the OpenAI API to complete (2-3 hours). The cost is around $10.
+Evaluate the ChatGPT (i.e., the old gpt-3.5-turbo) responses, human-labeled with atomic facts. Only run the factscore evaluator (i.e., retrieval + gpt-3.5-turbo-instruct). Need to consume ~5.9 milion tokens corresponding to atomic facts with contexts in 157 ChatGPT biographies (I guess what's remaining after abstaining from the original 183 topics). Even though we don't need atomic fact generation, it can take a while for the OpenAI API to complete (2-3 hours). The cost is around $10.
 ```
 python factscore/factscorer.py --input_path data/labeled/ChatGPT.jsonl --model_name retrieval+ChatGPT --openai_key openai_key.txt --use_atomic_facts --verbose
 ```
 
-## Unlabeled (TODO)
+## Unlabeled
 
-Evaluate the Alpaca-65B responses. Need to generate atomic facts as well as running the factscore evaluator. Alpaca-65B responds to 500 out of 500 topics.
+Evaluate the Alpaca-65B responses. Need to generate atomic facts as well as running the factscore evaluator (both by gpt-3.5-turbo-instruct). Alpaca-65B responds to 500 out of 500 topics.
 
-For atomic fact generation, need to consume ~? tokens.
+For atomic fact generation, need to consume 2 million input tokens corresponding to in-context examples and the biography. Estimated cost $3, but this doesn't include output tokens so it'll be more like $6, I think.
 
-For factscore evaluation, need to consume ~? tokens.
+For factscore evaluation, need to consume 8.1 million input tokens corresponding to atomic facts with contexts. Estimated cost $13. So the total cost is around $20.
 
-The whole thing takes around ? hours.
+The whole thing takes a few hours (OpenAI willing).
 
-The cost is around $?.
 
 ```
 python factscore/factscorer.py --input_path data/unlabeled/Alpaca-65B.jsonl --model_name retrieval+ChatGPT --openai_key openai_key.txt --verbose

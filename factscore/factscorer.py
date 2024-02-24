@@ -74,7 +74,25 @@ class FactScorer(object):
         embed_cache_path = os.path.join(self.cache_dir, f"retrieval-{name}.pkl")
 
         self.db[name] = DocDB(db_path=db_path, data_path=data_path)
+
+        #title = 'Josiah Maduabuchi%'
+        #title = 'Francisco Urroz%'
+        #cursor = self.db[name].connection.cursor()
+        #cursor.execute("SELECT text FROM documents WHERE title LIKE ?", (title,))
+        #results = cursor.fetchall()
+        #results = [r for r in results]
+        #cursor.close()
+        #print(results)
+        #exit()
+
+        #cursor = self.db[name].connection.cursor()
+        #cursor.execute("SELECT * FROM documents")
+        #results = cursor.fetchall()
+        #print(f'Total {len(results)} rows in the table documents')  # 6187531
+        #cursor.close()
+        #exit()
         self.retrieval[name] = Retrieval(self.db[name], cache_path, embed_cache_path, batch_size=self.batch_size)
+
         if "npm" in self.model_name:
             cache_path = os.path.join(self.cache_dir, f"bm25-{name}.json")
             embed_cache_path = os.path.join(self.cache_dir, f"bm25-{name}.pkl")
@@ -105,7 +123,7 @@ class FactScorer(object):
         total_cost = total_tokens * rate / 1000
 
         # print the total words, tokens, and cost along with rate
-        logging.critical("Estimated OpenAI API cost for %s ($%.3f per 1000 tokens): $%.2f for %d words and %d *input* tokens (the cost does not include output tokens)" % (task, rate, total_cost, total_words, total_tokens))
+        logging.critical("Estimated OpenAI API cost for %s ($%.4f per 1000 tokens): $%.2f for %d words and %d *input* tokens (the cost does not include output tokens)" % (task, rate, total_cost, total_words, total_tokens))
 
     def get_score(self,
                   topics,
