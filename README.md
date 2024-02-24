@@ -19,7 +19,7 @@ Put your OpenAI key in a file, assumed to be `openai_key.txt` here.
 
 - Originally, InstructGPT=GPT3=text-davinci-003, and ChatGPT=gpt-3.5-turbo.
 
-- Due to deprecation, both InstructGPT and ChatGPT use gpt-3.5-turbo-instruct now. So the replication will not be exact.
+- Due to deprecation, InstructGPT is set to gpt-3.5-turbo-instruct now. ChatGPT is still gpt-3.5-turbo. So if we do our own atomic fact generation, we will be using gpt-3.5-turb-instruct instead of davinci-003. But even if we don't and just do factscore evalution, using gpt-3.5-turbo, the results are different. My best guess is that it's difficult to replicate exactly because who knows what updates are being made with models at OpenAI.
 
 - Some topics don't match exactly to titles in the DB due to ambiguity, which causes the code to fail (see [this issue](https://github.com/shmsw25/FActScore/issues/35)). An example is "Francisco Urroz". The code is modified to match titles with the same prefix if this happens (much slower), which gives "Francisco Urroz (rugby union)" and "Francisco Urroz (footballer)". The code then just uses all the paragraphs in these entries, assuming that the model shouldn't be penalized for the ambiguity of the query. This is an interesting example because GPT-4 is aware of the ambiguity at least (though it gets most facts wrong) while Alpaca-65B is oblivious, see `*-problem.jsonl`.
 

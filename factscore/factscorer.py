@@ -161,7 +161,7 @@ class FactScorer(object):
 
             # text-davinci-003 is deprecated: https://platform.openai.com/docs/deprecations
             #self.print_cost_estimates(total_words, task="atomic fact generation", model="davinci-003")
-            self.print_cost_estimates(total_words, task="atomic fact generation", model="gpt-3.5-turbo-instruct")
+            self.print_cost_estimates(total_words, task="atomic fact generation", model="gpt-3.5-turbo-instruct")  # atomic fact generator uses InstructGPT
 
             if verbose:
                 topics = tqdm(topics)
