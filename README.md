@@ -21,7 +21,7 @@ Put your OpenAI key in a file, assumed to be `openai_key.txt` here.
 
 - Due to deprecation, both InstructGPT and ChatGPT use gpt-3.5-turbo-instruct now. So the replication will not be exact.
 
-- Some topics don't match exactly to titles in the DB due to ambiguity, which causes the code to fail. An example is "Francisco Urroz". The code is modified to match titles with the same prefix if this happens (much slower), which gives "Francisco Urroz (rugby union)" and "Francisco Urroz (footballer)". The code then just uses all the paragraphs in these entries, assuming that the model shouldn't be penalized for the ambiguity of the query. This is an interesting example because GPT-4 is aware of the ambiguity at least (though it gets most facts wrong) while Alpaca-65B is oblivious, see `*-problem.jsonl`.
+- Some topics don't match exactly to titles in the DB due to ambiguity, which causes the code to fail (see [this issue](https://github.com/shmsw25/FActScore/issues/35)). An example is "Francisco Urroz". The code is modified to match titles with the same prefix if this happens (much slower), which gives "Francisco Urroz (rugby union)" and "Francisco Urroz (footballer)". The code then just uses all the paragraphs in these entries, assuming that the model shouldn't be penalized for the ambiguity of the query. This is an interesting example because GPT-4 is aware of the ambiguity at least (though it gets most facts wrong) while Alpaca-65B is oblivious, see `*-problem.jsonl`.
 
 
 # Commands
