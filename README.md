@@ -37,7 +37,7 @@ python factscore/factscorer.py --input_path ChatGPT_unlabeled_head2.jsonl --mode
 
 ## Labeled
 
-Evaluate the ChatGPT (i.e., the old gpt-3.5-turbo) responses, human-labeled with atomic facts. Only run the factscore evaluator (i.e., retrieval + gpt-3.5-turbo-instruct). Need to consume ~5.9 milion tokens corresponding to atomic facts with contexts in 157 ChatGPT biographies (I guess what's remaining after abstaining from the original 183 topics). Even though we don't need atomic fact generation, it can take a while for the OpenAI API to complete (2-3 hours). The cost is around $10.
+Evaluate the ChatGPT (i.e., the old gpt-3.5-turbo) responses, human-labeled with atomic facts. Only run the factscore evaluator (i.e., retrieval + gpt-3.5-turbo-instruct). Need to consume ~5.9 milion tokens corresponding to atomic facts with contexts in 157 ChatGPT biographies (I guess what's remaining after abstaining from the original 183 topics). Even though we don't need atomic fact generation, it can take a while for the OpenAI API to complete (2-3 hours). The cost ended up around $6.
 ```
 python factscore/factscorer.py --input_path data/labeled/ChatGPT.jsonl --model_name retrieval+ChatGPT --openai_key openai_key.txt --use_atomic_facts --verbose
 ```
@@ -46,9 +46,9 @@ python factscore/factscorer.py --input_path data/labeled/ChatGPT.jsonl --model_n
 
 Evaluate the Alpaca-65B responses. Need to generate atomic facts as well as running the factscore evaluator (both by gpt-3.5-turbo-instruct). Alpaca-65B responds to 500 out of 500 topics.
 
-For atomic fact generation, need to consume 2 million input tokens corresponding to in-context examples and the biography. Estimated cost $3, but this doesn't include output tokens so it'll be more like $6, I think.
+For atomic fact generation, need to consume 2 million input tokens corresponding to in-context examples and the biography. 
 
-For factscore evaluation, need to consume 8.1 million input tokens corresponding to atomic facts with contexts. Estimated cost $13. So the total cost is around $20.
+For factscore evaluation, need to consume 8.1 million input tokens corresponding to atomic facts with contexts. The total cost ended up around $4.
 
 The whole thing takes a few hours (OpenAI willing).
 
